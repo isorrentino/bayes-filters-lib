@@ -72,7 +72,7 @@ void bfl::sigma_point::unscented_weights
         }
         else
         {
-            weight_mean(j)       = 1 / (2 * (n + lambda));
+            weight_mean(j)       = 1.0 / (2 * (n + lambda));
             weight_covariance(j) = weight_mean(j);
         }
     }
@@ -83,11 +83,14 @@ void bfl::sigma_point::unscented_weights
 
 MatrixXd bfl::sigma_point::sigma_point(const GaussianMixture& state, const double c)
 {
+//    std::cout << "Calcolo i sigma points partendo dal vettore in input:\n" << state.mean() << std::endl;
+
     MatrixXd sigma_points(state.dim, ((state.dim_covariance * 2) + 1) * state.components);
 
     for (std::size_t i = 0; i < state.components; i++)
     {
-        JacobiSVD<MatrixXd> svd = state.covariance(i).jacobiSvd(ComputeThinU);
+//        JacobiSVD<MatrixXd> svd = state.covariance(i).jacobiSvd(ComputeThinU);
+        Eigen::BDCSVD<MatrixXd> svd = state.covariance(i).bdcSvd(ComputeThinU);
 
         MatrixXd A = svd.matrixU() * svd.singularValues().cwiseSqrt().asDiagonal();
 
@@ -132,6 +135,8 @@ std::tuple<bool, GaussianMixture, MatrixXd> bfl::sigma_point::unscented_transfor
     /* Sample sigma points. */
     MatrixXd input_sigma_points = sigma_point::sigma_point(input, weight.c);
 
+//    std::cout << "Sigma points\n" << input_sigma_points.transpose() << std::endl;
+
     /* Propagate sigma points */
     bool valid_fun_data;
     Data fun_data;
@@ -158,7 +163,6 @@ std::tuple<bool, GaussianMixture, MatrixXd> bfl::sigma_point::unscented_transfor
         const Ref<MatrixXd> input_sigma_points_i = input_sigma_points.middleCols(base * i, base);
         const Ref<MatrixXd> prop_sigma_points_i = prop_sigma_points.middleCols(base * i, base);
 
-        /* Evaluate the mean. */
         output.mean(i).topRows(output.dim_linear).noalias() = prop_sigma_points_i.topRows(output.dim_linear) * weight.mean;
 
         if (output.dim_circular > 0)
